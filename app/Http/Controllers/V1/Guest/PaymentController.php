@@ -10,6 +10,7 @@ use App\Services\OrderService;
 use App\Services\PaymentService;
 use App\Services\TelegramService;
 use Illuminate\Http\Request;
+use App\Models\Payment;
 
 class PaymentController extends Controller
 {
