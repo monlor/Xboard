@@ -46,11 +46,11 @@ class V2rayNG
             ['-', '_', ''],
             base64_encode("{$server['cipher']}:{$password}")
         );
-        $uri = "ss://{$str}@{$server['host']}:{$server['port']}";
-        if ($server['obfs'] == 'http') {
-            $uri .= "?plugin=obfs-local;obfs=http;obfs-host={$server['obfs-host']};path={$server['obfs-path']}";
+        if ($server['obfs'] === 'http') {
+            $plugin = rawurlencode("obfs-local;obfs=http;obfs-host={$server['obfs_settings']['host']}");
+            $obfs = "?plugin={$plugin}";
         }
-        return $uri."#{$name}\r\n";
+        return "ss://{$str}@{$server['host']}:{$server['port']}/{$obfs}#{$name}\r\n";
     }
 
     public static function buildVmess($uuid, $server)
