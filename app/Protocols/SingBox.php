@@ -101,6 +101,15 @@ class SingBox
         $array['method'] = $server['cipher'];
         $array['password'] = $password;
 
+        if ($server['obfs'] === 'http') {
+            $array['plugin'] = 'obfs';
+            $plugin_opts = [
+                "mode" => "http",
+                "host" => $server['obfs_settings']['host']
+            ];
+            $array['plugin-opts'] = $plugin_opts;
+        }
+
         return $array;
     }
 
