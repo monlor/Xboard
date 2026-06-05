@@ -92,11 +92,7 @@ abstract class AbstractProtocol
     {
         $this->filterByAllowedProtocols();
         $hasGlobalConfig = isset($this->protocolRequirements['*']);
-        $hasClientConfig = isset($this->protocolRequirements[$this->clientName]);
-
-        if ((blank($this->clientName) || blank($this->clientVersion)) && !$hasGlobalConfig) {
-            return $this->servers;
-        }
+        $hasClientConfig = !blank($this->clientName) && isset($this->protocolRequirements[$this->clientName]);
 
         if (!$hasGlobalConfig && !$hasClientConfig) {
             return $this->servers;
@@ -142,7 +138,17 @@ abstract class AbstractProtocol
     private function checkRequirements(array $requirements, array $server): bool
     {
         foreach ($requirements as $field => $filterRule) {
-            if (in_array($field, ['base_version', 'incompatible'])) {
+            if ($field === 'base_version') {
+                if (!$this->clientVersionSatisfies($filterRule)) {
+                    return false;
+                }
+                continue;
+            }
+
+            if ($field === 'incompatible') {
+                if ($this->matchesIncompatibleRule($filterRule, $server)) {
+                    return false;
+                }
                 continue;
             }
 
@@ -152,7 +158,7 @@ abstract class AbstractProtocol
                 $allowedValues = $filterRule['whitelist'];
                 $strict = $filterRule['strict'] ?? false;
                 // Normalize flat array ['tcp', 'ws'] to ['tcp' => '0.0.0', 'ws' => '0.0.0']
-                if (!empty($allowedValues) && is_int(array_key_first($allowedValues))) {
+                if (array_is_list($allowedValues)) {
                     $allowedValues = array_fill_keys($allowedValues, '0.0.0');
                 }
                 if ($strict) {
@@ -166,7 +172,7 @@ abstract class AbstractProtocol
                         return false;
                     }
                     $requiredVersion = $allowedValues[$actualValue];
-                    if ($requiredVersion !== '0.0.0' && version_compare($this->clientVersion, $requiredVersion, '<')) {
+                    if (!$this->clientVersionSatisfies($requiredVersion)) {
                         return false;
                     }
                     continue;
@@ -186,12 +192,42 @@ abstract class AbstractProtocol
                 continue;
             }
             $requiredVersion = $allowedValues[$actualValue];
-            if ($requiredVersion !== '0.0.0' && version_compare($this->clientVersion, $requiredVersion, '<')) {
+            if (!$this->clientVersionSatisfies($requiredVersion)) {
                 return false;
             }
         }
 
         return true;
+    }
+
+    private function clientVersionSatisfies(string|int|float|null $requiredVersion): bool
+    {
+        if ($requiredVersion === null || (string) $requiredVersion === '0.0.0') {
+            return true;
+        }
+
+        if (blank($this->clientVersion)) {
+            return false;
+        }
+
+        return version_compare((string) $this->clientVersion, (string) $requiredVersion, '>=');
+    }
+
+    private function matchesIncompatibleRule(mixed $rule, array $server): bool
+    {
+        if (!is_array($rule)) {
+            return false;
+        }
+
+        foreach ($rule as $field => $blockedValues) {
+            $actualValue = data_get($server, $field);
+            $blockedValues = is_array($blockedValues) ? $blockedValues : [$blockedValues];
+            if (in_array($actualValue, $blockedValues, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

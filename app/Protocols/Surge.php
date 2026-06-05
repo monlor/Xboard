@@ -18,12 +18,14 @@ class Surge extends AbstractProtocol
         Server::TYPE_VMESS,
         Server::TYPE_TROJAN,
         Server::TYPE_HYSTERIA,
+        Server::TYPE_TUIC,
         Server::TYPE_ANYTLS,
         Server::TYPE_SOCKS,
         Server::TYPE_HTTP,
     ];
     protected $protocolRequirements = [
-        'surge.hysteria.protocol_settings.version' => [2 => '2398'],
+        'surge.hysteria.protocol_settings.version' => [2 => '5.8.0'],
+        'surge.anytls.base_version' => '5.17.0',
     ];
 
     public function handle()
@@ -61,6 +63,10 @@ class Surge extends AbstractProtocol
             }
             if ($item['type'] === Server::TYPE_HYSTERIA) {
                 $proxies .= self::buildHysteria($item['password'], $item);
+                $proxyGroup .= $item['name'] . ', ';
+            }
+            if ($item['type'] === Server::TYPE_TUIC) {
+                $proxies .= self::buildTuic($item['password'], $item);
                 $proxyGroup .= $item['name'] . ', ';
             }
             if ($item['type'] === Server::TYPE_ANYTLS) {
@@ -245,15 +251,58 @@ class Surge extends AbstractProtocol
             // 'tfo=true', 
             'udp-relay=true'
         ];
+        if (data_get($protocol_settings, 'obfs.open') && ($obfsPassword = data_get($protocol_settings, 'obfs.password'))) {
+            $config[] = "salamander-password={$obfsPassword}";
+        }
         if (data_get($protocol_settings, 'bandwidth.up')) {
             $config[] = "upload-bandwidth={$protocol_settings['bandwidth']['up']}";
         }
         if (data_get($protocol_settings, 'bandwidth.down')) {
             $config[] = "download-bandwidth={$protocol_settings['bandwidth']['down']}";
         }
+        if (isset($server['ports'])) {
+            $config[] = "port-hopping=" . str_replace(',', ';', $server['ports']);
+        }
+        if ($hopInterval = data_get($protocol_settings, 'hop_interval')) {
+            $config[] = "port-hopping-interval={$hopInterval}";
+        }
         if (data_get($protocol_settings, 'tls.allow_insecure')) {
             $config[] = !!data_get($protocol_settings, 'tls.allow_insecure') ? 'skip-cert-verify=true' : 'skip-cert-verify=false';
         }
+        $config = array_filter($config);
+        $uri = implode(',', $config);
+        $uri .= "\r\n";
+        return $uri;
+    }
+
+    //参考文档: https://manual.nssurge.com/policy/proxy.html
+    public static function buildTuic($password, $server)
+    {
+        $protocol_settings = data_get($server, 'protocol_settings', []);
+        $config = [
+            "{$server['name']} = tuic",
+            "{$server['host']}",
+            "{$server['port']}",
+            "token={$password}",
+            'udp-relay=true',
+        ];
+
+        if ($alpn = data_get($protocol_settings, 'alpn')) {
+            $config[] = 'alpn=' . (is_array($alpn) ? implode(',', $alpn) : $alpn);
+        }
+        if ($serverName = data_get($protocol_settings, 'tls.server_name')) {
+            $config[] = "sni={$serverName}";
+        }
+        if (isset($server['ports'])) {
+            $config[] = "port-hopping=" . str_replace(',', ';', $server['ports']);
+        }
+        if ($hopInterval = data_get($protocol_settings, 'hop_interval')) {
+            $config[] = "port-hopping-interval={$hopInterval}";
+        }
+        if (data_get($protocol_settings, 'tls.allow_insecure')) {
+            $config[] = 'skip-cert-verify=true';
+        }
+
         $config = array_filter($config);
         $uri = implode(',', $config);
         $uri .= "\r\n";

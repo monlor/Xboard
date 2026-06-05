@@ -19,7 +19,13 @@ class Loon extends AbstractProtocol
     ];
 
     protected $protocolRequirements = [
-        'loon.hysteria.protocol_settings.version' => [2 => '637'],
+        'loon.hysteria.protocol_settings.version' => [
+            'whitelist' => [
+                2 => '637',
+            ],
+            'strict' => true,
+        ],
+        'loon.anytls.base_version' => '945',
         'loon.trojan.protocol_settings.tls' => [0 => '3.2.1', 1 => '3.2.1',2 => '999.9.9'],
     ];
 

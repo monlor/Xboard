@@ -19,6 +19,7 @@ class SingBox extends AbstractProtocol
         Server::TYPE_TUIC,
         Server::TYPE_ANYTLS,
         Server::TYPE_SOCKS,
+        Server::TYPE_NAIVE,
         Server::TYPE_HTTP,
     ];
     private $config;
@@ -97,6 +98,7 @@ class SingBox extends AbstractProtocol
                 ]
             ],
             'naive' => [
+                'base_version' => '1.8.0',
                 'protocol_settings.tls_settings.ech.enabled' => [
                     1 => '1.5.0'
                 ]
@@ -172,6 +174,10 @@ class SingBox extends AbstractProtocol
             if ($item['type'] === Server::TYPE_SOCKS) {
                 $socksConfig = $this->buildSocks($this->user['uuid'], $item);
                 $proxies[] = $socksConfig;
+            }
+            if ($item['type'] === Server::TYPE_NAIVE) {
+                $naiveConfig = $this->buildNaive($this->user['uuid'], $item);
+                $proxies[] = $naiveConfig;
             }
             if ($item['type'] === Server::TYPE_HTTP) {
                 $httpConfig = $this->buildHttp($this->user['uuid'], $item);
@@ -804,6 +810,33 @@ class SingBox extends AbstractProtocol
 
         if (data_get($protocol_settings, 'udp_over_tcp')) {
             $array['udp_over_tcp'] = true;
+        }
+
+        return $array;
+    }
+
+    protected function buildNaive($password, $server): array
+    {
+        $protocol_settings = data_get($server, 'protocol_settings', []);
+        $array = [
+            'type' => 'naive',
+            'tag' => $server['name'],
+            'server' => $server['host'],
+            'server_port' => $server['port'],
+            'username' => $password,
+            'password' => $password,
+        ];
+
+        if (data_get($protocol_settings, 'tls')) {
+            $array['tls'] = [
+                'enabled' => true,
+                'insecure' => (bool) data_get($protocol_settings, 'tls_settings.allow_insecure', false),
+            ];
+
+            if ($serverName = data_get($protocol_settings, 'tls_settings.server_name')) {
+                $array['tls']['server_name'] = $serverName;
+            }
+            $this->appendEch($array['tls'], data_get($protocol_settings, 'tls_settings.ech'));
         }
 
         return $array;
