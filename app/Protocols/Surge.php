@@ -18,7 +18,6 @@ class Surge extends AbstractProtocol
         Server::TYPE_VMESS,
         Server::TYPE_TROJAN,
         Server::TYPE_HYSTERIA,
-        Server::TYPE_TUIC,
         Server::TYPE_ANYTLS,
         Server::TYPE_SOCKS,
         Server::TYPE_HTTP,
@@ -63,10 +62,6 @@ class Surge extends AbstractProtocol
             }
             if ($item['type'] === Server::TYPE_HYSTERIA) {
                 $proxies .= self::buildHysteria($item['password'], $item);
-                $proxyGroup .= $item['name'] . ', ';
-            }
-            if ($item['type'] === Server::TYPE_TUIC) {
-                $proxies .= self::buildTuic($item['password'], $item);
                 $proxyGroup .= $item['name'] . ', ';
             }
             if ($item['type'] === Server::TYPE_ANYTLS) {
@@ -269,47 +264,6 @@ class Surge extends AbstractProtocol
         if (data_get($protocol_settings, 'tls.allow_insecure')) {
             $config[] = !!data_get($protocol_settings, 'tls.allow_insecure') ? 'skip-cert-verify=true' : 'skip-cert-verify=false';
         }
-        $config = array_filter($config);
-        $uri = implode(',', $config);
-        $uri .= "\r\n";
-        return $uri;
-    }
-
-    //参考文档: https://manual.nssurge.com/policy/proxy.html
-    public static function buildTuic($password, $server)
-    {
-        $protocol_settings = data_get($server, 'protocol_settings', []);
-        $config = [
-            "{$server['name']} = tuic",
-            "{$server['host']}",
-            "{$server['port']}",
-            'udp-relay=true',
-        ];
-
-        if ((int) data_get($protocol_settings, 'version', 5) === 4) {
-            $config[] = "token={$password}";
-        } else {
-            $config[] = "uuid={$password}";
-            $config[] = "password={$password}";
-            $config[] = 'version=5';
-        }
-
-        if ($alpn = data_get($protocol_settings, 'alpn')) {
-            $config[] = 'alpn=' . (is_array($alpn) ? implode(',', $alpn) : $alpn);
-        }
-        if ($serverName = data_get($protocol_settings, 'tls.server_name')) {
-            $config[] = "sni={$serverName}";
-        }
-        if (isset($server['ports'])) {
-            $config[] = "port-hopping=" . str_replace(',', ';', $server['ports']);
-        }
-        if ($hopInterval = data_get($protocol_settings, 'hop_interval')) {
-            $config[] = "port-hopping-interval={$hopInterval}";
-        }
-        if (data_get($protocol_settings, 'tls.allow_insecure')) {
-            $config[] = 'skip-cert-verify=true';
-        }
-
         $config = array_filter($config);
         $uri = implode(',', $config);
         $uri .= "\r\n";
