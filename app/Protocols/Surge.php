@@ -283,9 +283,16 @@ class Surge extends AbstractProtocol
             "{$server['name']} = tuic",
             "{$server['host']}",
             "{$server['port']}",
-            "token={$password}",
             'udp-relay=true',
         ];
+
+        if ((int) data_get($protocol_settings, 'version', 5) === 4) {
+            $config[] = "token={$password}";
+        } else {
+            $config[] = "uuid={$password}";
+            $config[] = "password={$password}";
+            $config[] = 'version=5';
+        }
 
         if ($alpn = data_get($protocol_settings, 'alpn')) {
             $config[] = 'alpn=' . (is_array($alpn) ? implode(',', $alpn) : $alpn);

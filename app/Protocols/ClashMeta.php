@@ -653,7 +653,7 @@ class ClashMeta extends AbstractProtocol
             'udp' => true,
         ];
 
-        if (data_get($protocol_settings, 'version') === 4) {
+        if ((int) data_get($protocol_settings, 'version', 5) === 4) {
             $array['token'] = $password;
         } else {
             $array['uuid'] = $password;

@@ -482,10 +482,10 @@ class Stash extends AbstractProtocol
             'heartbeat-interval' => 10000,
             'request-timeout' => 8000,
             'max-udp-relay-packet-size' => 1500,
-            'version' => data_get($protocol_settings, 'version', 5),
+            'version' => (int) data_get($protocol_settings, 'version', 5),
         ];
 
-        if (data_get($protocol_settings, 'version') === 4) {
+        if ((int) data_get($protocol_settings, 'version', 5) === 4) {
             $array['token'] = $password;
         } else {
             $array['uuid'] = $password;

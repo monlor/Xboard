@@ -71,9 +71,13 @@ class SubscriptionProtocolCompatibilityTest extends TestCase
         $tuic = $this->server(Server::TYPE_TUIC, 'TUIC', [
             'hop_interval' => 30,
         ], ['ports' => '30000-30100']);
+        $tuic4 = $this->server(Server::TYPE_TUIC, 'TUIC4', [
+            'version' => 4,
+        ]);
 
         $hysteriaLine = Surge::buildHysteria('node-pass', $hysteria);
         $tuicLine = Surge::buildTuic('node-pass', $tuic);
+        $tuic4Line = Surge::buildTuic('node-pass', $tuic4);
 
         $this->assertStringContainsString('Hy2 = hysteria2', $hysteriaLine);
         $this->assertStringContainsString('password=node-pass', $hysteriaLine);
@@ -82,9 +86,16 @@ class SubscriptionProtocolCompatibilityTest extends TestCase
         $this->assertStringContainsString('port-hopping-interval=45', $hysteriaLine);
 
         $this->assertStringContainsString('TUIC = tuic', $tuicLine);
-        $this->assertStringContainsString('token=node-pass', $tuicLine);
+        $this->assertStringContainsString('uuid=node-pass', $tuicLine);
+        $this->assertStringContainsString('password=node-pass', $tuicLine);
+        $this->assertStringContainsString('version=5', $tuicLine);
+        $this->assertStringNotContainsString('token=node-pass', $tuicLine);
         $this->assertStringContainsString('alpn=h3', $tuicLine);
         $this->assertStringContainsString('port-hopping=30000-30100', $tuicLine);
+
+        $this->assertStringContainsString('TUIC4 = tuic', $tuic4Line);
+        $this->assertStringContainsString('token=node-pass', $tuic4Line);
+        $this->assertStringNotContainsString('uuid=node-pass', $tuic4Line);
     }
 
     public function test_clash_meta_builders_emit_modern_protocol_fields(): void
@@ -107,6 +118,37 @@ class SubscriptionProtocolCompatibilityTest extends TestCase
         $this->assertSame('node-pass', $anytls['password']);
         $this->assertSame('tls.example.com', $anytls['sni']);
         $this->assertTrue($anytls['skip-cert-verify']);
+    }
+
+    public function test_tuic_builders_handle_string_versions_consistently(): void
+    {
+        $tuic4 = $this->server(Server::TYPE_TUIC, 'TUIC4', ['version' => '4']);
+
+        $surgeLine = Surge::buildTuic('node-pass', $tuic4);
+        $this->assertStringContainsString('token=node-pass', $surgeLine);
+        $this->assertStringNotContainsString('uuid=node-pass', $surgeLine);
+
+        $shadowrocketParams = $this->queryParams(Shadowrocket::buildTuic('node-pass', $tuic4));
+        $this->assertSame('h3', $shadowrocketParams['alpn']);
+        $this->assertSame('node-pass', $shadowrocketParams['token']);
+        $this->assertArrayNotHasKey('uuid', $shadowrocketParams);
+
+        $clashMeta = ClashMeta::buildTuic('node-pass', $tuic4);
+        $this->assertSame('node-pass', $clashMeta['token']);
+        $this->assertArrayNotHasKey('uuid', $clashMeta);
+
+        $stash = Stash::buildTuic('node-pass', $tuic4);
+        $this->assertSame(4, $stash['version']);
+        $this->assertSame('node-pass', $stash['token']);
+        $this->assertArrayNotHasKey('uuid', $stash);
+
+        $protocol = new SingBox($this->user(), [], 'sing-box', '1.5.0', 'sing-box/1.5.0');
+        $method = new \ReflectionMethod(SingBox::class, 'buildTuic');
+        $method->setAccessible(true);
+        $singBox = $method->invoke($protocol, 'node-pass', $tuic4);
+
+        $this->assertSame('node-pass', $singBox['token']);
+        $this->assertArrayNotHasKey('uuid', $singBox);
     }
 
     public function test_sing_box_builds_naive_outbound(): void
@@ -139,6 +181,12 @@ class SubscriptionProtocolCompatibilityTest extends TestCase
         $property->setAccessible(true);
 
         return array_values(array_column($property->getValue($protocol), 'name'));
+    }
+
+    private function queryParams(string $uri): array
+    {
+        parse_str((string) parse_url(trim($uri), PHP_URL_QUERY), $params);
+        return $params;
     }
 
     private function user(): array

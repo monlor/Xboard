@@ -408,12 +408,13 @@ class Shadowrocket extends AbstractProtocol
     {
         $protocol_settings = $server['protocol_settings'];
         $name = rawurlencode($server['name']);
+        $alpn = data_get($protocol_settings, 'alpn');
         $params = [
-            'alpn' => data_get($protocol_settings, 'alpn'),
+            'alpn' => is_array($alpn) ? implode(',', $alpn) : $alpn,
             'sni' => data_get($protocol_settings, 'tls.server_name'),
             'insecure' => data_get($protocol_settings, 'tls.allow_insecure')
         ];
-        if (data_get($protocol_settings, 'version') === 4) {
+        if ((int) data_get($protocol_settings, 'version', 5) === 4) {
             $params['token'] = $password;
         } else {
             $params['uuid'] = $password;

@@ -761,7 +761,7 @@ class SingBox extends AbstractProtocol
         }
         $this->appendEch($array['tls'], data_get($protocol_settings, 'tls.ech'));
 
-        if (data_get($protocol_settings, 'version') === 4) {
+        if ((int) data_get($protocol_settings, 'version', 5) === 4) {
             $array['token'] = $password;
         } else {
             $array['uuid'] = $password;
